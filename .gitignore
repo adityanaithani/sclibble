@@ -1,0 +1,13 @@
+.env
+.env.local
+.env.*.local
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+.cache/
+*.tmp
