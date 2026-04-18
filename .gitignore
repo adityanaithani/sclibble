@@ -3,7 +3,6 @@
 .env.*.local
 
 .vscode/
-.idea/
 *.swp
 *.swo
 *~
@@ -11,3 +10,5 @@
 
 .cache/
 *.tmp
+
+notepad.md

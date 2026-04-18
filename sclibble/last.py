@@ -60,9 +60,46 @@ def authenticate():
     return session_key
 
 
-# payload building
-def buildPayload(tracklist):
-    # batch building
-    # request sender
-    # recieving messages / confirming / sending to cache
-    pass
+def scrobble_batch(tracklist_chunk: list, api_key: str, secret: str, session_key: str):
+    if len(tracklist_chunk) > 50:
+        raise ValueError("Cannot scrobble more than 50 tracks per batch!")
+
+    payload = {
+        "method": "track.scrobble",
+        "api_key": api_key,
+        "sk": session_key,
+        "format": "json",
+    }
+
+    for i, track in enumerate(tracklist_chunk):
+        # artist, track, timestamp, album-opt, chosenbyuser-opt, tracknumber-opt, albumartist-opt, duration-opt)
+        payload[f"artist[{i}]"] = track["artist"]
+        payload[f"track[{i}]"] = track["track"]
+        payload[f"timestamp[{i}]"] = track["timestamp"]  # needs to be computed
+        if track.get("album"):
+            payload[f"album[{i}]"] = track["album"]
+        payload["api_sig"] == generate_sig(payload, secret)
+
+        response = requests.post(url, data=payload)
+        response.raise_for_status()
+
+        return response.json()
+
+
+def submit_scrobbles(tracklist: list, api_key: str, secret: str, session_key: str):
+    chunk_size = 50
+    total_scrobbles = 0
+
+    # print submitting batch of tracks
+    for i in range(0, len(tracklist), chunk_size):
+        chunk = tracklist[i : i + chunk_size]
+
+        try:
+            result = scrobble_batch(chunk, api_key, secret, session_key)
+            accepted = result.get("scrobbles", {}).get("@attr", {}).get("accepted", 0)
+            total_scrobbles += int(accepted)
+
+        except Exception as e:
+            # save to cache
+            # print failed to scrobble
+            pass
