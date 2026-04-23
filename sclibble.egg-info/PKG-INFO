@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: sclibble
+Version: 0.1.0
+Summary: A lightweight, terminal-based application to scrobble music from a connected iPod device to Last.fm.
+Author-email: Aditya Naithani <aditya0602@gmail.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: typer>=0.9.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: questionary>=2.0.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: platformdirs>=4.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.10.0; extra == "dev"
+Requires-Dist: responses>=0.23.0; extra == "dev"
+
+# SCLIbble
+
+"scrobble" + "cli" = sCLIbble
+
+A CLI app built to scrobble play counts from iPods to Last.fm.

@@ -1,9 +1,58 @@
 import struct
 import time
-import os
+import sys
+from pathlib import Path
+from typing import List, Optional
+
+from sclibble.models import Track
 
 
-def read_itunesDb(filepath):
+def find_device_path() -> Optional[str]:
+    """Scans common mount points for an iPod (identified by iPod_Control directory)."""
+    if sys.platform == "win32":
+        import string
+        drives = [f"{d}:\\" for d in string.ascii_uppercase]
+        for drive in drives:
+            try:
+                ipod_path = Path(drive) / "iPod_Control"
+                if ipod_path.exists() and ipod_path.is_dir():
+                    return drive
+            except Exception:
+                pass
+    elif sys.platform == "darwin":
+        volumes_dir = Path("/Volumes")
+        if volumes_dir.exists():
+            for mount in volumes_dir.iterdir():
+                try:
+                    ipod_path = mount / "iPod_Control"
+                    if ipod_path.exists() and ipod_path.is_dir():
+                        return str(mount)
+                except Exception:
+                    pass
+    else:  # Linux and others
+        import getpass
+        try:
+            user = getpass.getuser()
+        except Exception:
+            user = ""
+            
+        search_paths = [Path("/media"), Path("/mnt")]
+        if user:
+            search_paths.append(Path(f"/run/media/{user}"))
+            
+        for sp in search_paths:
+            if sp.exists():
+                for mount in sp.iterdir():
+                    try:
+                        ipod_path = mount / "iPod_Control"
+                        if ipod_path.exists() and ipod_path.is_dir():
+                            return str(mount)
+                    except Exception:
+                        pass
+    return None
+
+
+def read_itunesDb(filepath: str) -> List[dict]:
     tracklist = []
 
     with open(filepath, "rb") as f:
@@ -59,7 +108,7 @@ def read_itunesDb(filepath):
     return tracklist
 
 
-def read_play_counts(filepath, tracklist):
+def read_play_counts(filepath: str, tracklist: List[dict]) -> List[dict]:
     with open(filepath, "rb") as f:
         data = f.read()
 
@@ -91,25 +140,80 @@ def read_play_counts(filepath, tracklist):
     return tracklist
 
 
-def get_recent_tracks(itunesDb_path, play_counts_path):
+def get_recent_tracks(itunesDb_path: str, play_counts_path: str) -> List[Track]:
+    """
+    Parses the database and play counts, returning a list of `Track` models.
+    Simulates timestamps for multiple plays of the same track to prevent overlap.
+    """
     tracklist = read_itunesDb(itunesDb_path)
     tracklist = read_play_counts(play_counts_path, tracklist)
 
-    recent_plays = [t for t in tracklist if t["playCount"] > 0]
-    recent_plays.sort(key=lambda x: x["lastPlayed"], reverse=True)
+    class Play:
+        def __init__(self, track_dict: dict, ts: int):
+            self.track_dict = track_dict
+            self.ts = ts
 
-    return recent_plays
+    plays = []
+    for t in tracklist:
+        pc = t["playCount"]
+        if pc > 0:
+            length_sec = t["length"] // 1000
+            if length_sec <= 0:
+                length_sec = 180  # Default to 3 minutes if length is missing or 0
+            
+            last_played = t["lastPlayed"]
+            for i in range(pc):
+                # Backdate previous plays by the length of the track
+                ts = last_played - (i * length_sec)
+                plays.append(Play(t, ts))
+
+    # Sort plays descending by calculated timestamp to resolve overlaps
+    plays.sort(key=lambda p: p.ts, reverse=True)
+
+    resolved_tracks = []
+    latest_available_time = float('inf')
+
+    for p in plays:
+        if p.ts > latest_available_time:
+            p.ts = latest_available_time
+
+        length_sec = p.track_dict["length"] // 1000
+        if length_sec <= 0:
+            length_sec = 180
+
+        # The next (older) play must finish before this one starts
+        latest_available_time = p.ts - length_sec
+        
+        # We model each scrobble event as a Track instance with play_count=1
+        track_model = Track(
+            title=p.track_dict["track"],
+            artist=p.track_dict["artist"],
+            album=p.track_dict["album"],
+            play_count=1, 
+            last_played=p.track_dict["lastPlayed"],
+            timestamp=int(p.ts)
+        )
+        resolved_tracks.append(track_model)
+
+    # Return chronologically ascending
+    resolved_tracks.sort(key=lambda t: t.timestamp)
+    return resolved_tracks
 
 
 # --- Usage Example ---
 if __name__ == "__main__":
-    itunesDb_file = "./test/sampleData/iTunesDB"
-    play_counts_file = "./test/sampleData/Play Counts"
+    device_path = find_device_path()
+    print(f"Device Path: {device_path}")
+    
+    itunesDb_file = "../tests/sampleData/iTunesDB"
+    play_counts_file = "../tests/sampleData/Play Counts"
 
-    total = read_itunesDb(itunesDb_file)
-    print(f"Found {len(total)} tracks, processing...")
-
-    recent = get_recent_tracks(itunesDb_file, play_counts_file)
-    print(f"Found {len(recent)} recent plays ready to scrobble. \n")
-    print(f"tracks:\n {recent}")
-    pass
+    if Path(itunesDb_file).exists() and Path(play_counts_file).exists():
+        recent = get_recent_tracks(itunesDb_file, play_counts_file)
+        print(f"Found {len(recent)} recent plays ready to scrobble. \n")
+        for tr in recent[:5]:
+            print(tr)
+        if len(recent) > 5:
+            print(f"... and {len(recent) - 5} more.")
+    else:
+        print("Sample data not found.")

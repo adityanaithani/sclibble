@@ -1,0 +1,2 @@
+[console_scripts]
+sclibble = sclibble.cli:app
