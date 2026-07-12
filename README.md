@@ -1,5 +1,80 @@
 # SCLIbble
 
-"scrobble" + "cli" = sCLIbble
+**SCLIbble** is a lightweight, terminal-based application designed to scrobble music from a connected iPod device to Last.fm.
 
-A CLI app built to scrobble play counts from iPods to Last.fm.
+The primary focus is on being fast, unobtrusive, and completely independent of heavy, persistent GUI applications just to sync your device. It utilizes a "Hybrid" approach: simple commands for setup and management, and an ephemeral, interactive inline TUI for selecting which tracks to scrobble during a sync.
+
+## Features
+
+*   **Native Binary Parsing:** Directly reads the `iTunesDB` and `Play Counts` binary files on your iPod without requiring heavy C-based dependencies like `libgpod`.
+*   **Intelligent Overlap Resolution:** Accurately simulates and backdates timestamps for tracks played multiple times, ensuring your Last.fm history remains chronological without scrobble collisions.
+*   **Inline TUI:** Uses an interactive terminal UI with a scrollable checkbox list to easily select which parsed tracks you actually want to submit.
+*   **Robust Caching:** Failed scrobbles due to network issues are saved locally and automatically retried on your next sync.
+*   **Cross-Platform Device Discovery:** Automatically scans common mount points to find your connected iPod on macOS, Windows, and Linux.
+
+## Installation
+
+Ensure you have Python 3.9+ installed. You can install SCLIbble locally using `pip`:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/sclibble.git
+cd sclibble
+
+# Install the package
+pip install .
+```
+
+*Note: For development, you can use `pip install -e ".[dev]"` to install in editable mode with testing dependencies.*
+
+## Usage
+
+SCLIbble is built using [Typer](https://typer.tiangolo.com/), providing a clean and documented CLI.
+
+You can view all available commands by running:
+```bash
+sclibble --help
+```
+
+### 1. Authentication
+Before syncing, you must authenticate SCLIbble with your Last.fm account:
+```bash
+sclibble login
+```
+This will open your default web browser to Last.fm for approval. Once approved, press Enter in your terminal to save your session.
+
+### 2. Checking Status
+You can check your current authentication status and see if there are any failed scrobbles pending in the cache:
+```bash
+sclibble status
+```
+
+### 3. The Daily Sync
+To find your iPod, parse the latest plays, and submit them to Last.fm:
+```bash
+sclibble sync
+```
+*   The app will automatically find your iPod.
+*   It will parse the database and present an interactive list of recent plays.
+*   Use the `Spacebar` to toggle selection and `Enter` to confirm.
+*   After successful submission, SCLIbble will prompt you to optionally delete the `Play Counts` file on the device to prevent duplicate scrobbles on future syncs.
+
+### 4. Logging Out
+To clear your saved Last.fm session:
+```bash
+sclibble logout
+```
+
+## Architecture & Tech Stack
+
+*   **CLI Framework:** `Typer` (Lightweight, declarative, built on `click`).
+*   **Inline TUI / Prompts:** `Questionary` (For paginated, inline checkbox lists).
+*   **Styling & Output:** `Rich` (For colors, spinners, and formatted terminal text).
+*   **State Management:** `platformdirs` (For cross-platform application data storage).
+*   **Last.fm API:** Custom implementation using `requests` and Python's `hashlib` to minimize bloat and dependencies.
+*   **Parsing:** Custom Python `struct`-based parser.
+
+## License
+MIT License.
+
+## Todo:
