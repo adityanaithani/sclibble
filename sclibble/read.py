@@ -52,6 +52,28 @@ def find_device_path() -> Optional[str]:
     return None
 
 
+def get_device_name(device_path: str) -> Optional[str]:
+    """Reads the custom iPod name from the hidden DeviceInfo file."""
+    try:
+        device_info_path = Path(device_path) / "iPod_Control" / "iTunes" / "DeviceInfo"
+        if not device_info_path.exists():
+            return None
+
+        with open(device_info_path, "rb") as f:
+            data = f.read()
+
+        if len(data) >= 512:
+            # First 2 bytes are length of the name (in characters, not bytes)
+            name_length = struct.unpack_from("<H", data, 0)[0]
+            if name_length > 0 and name_length < 256:
+                # Name starts at offset 2, UTF-16LE encoded. Each char is 2 bytes.
+                name_bytes = data[2: 2 + (name_length * 2)]
+                return name_bytes.decode("utf-16-le", errors="ignore").strip("\x00")
+    except Exception:
+        pass
+    return None
+
+
 def read_itunesDb(filepath: str) -> List[dict]:
     tracklist = []
 

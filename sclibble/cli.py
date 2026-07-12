@@ -2,9 +2,14 @@ import os
 from pathlib import Path
 import typer
 
-from sclibble.config import load_session, save_session, clear_session, load_failed_scrobbles
+from sclibble.config import (
+    load_session,
+    save_session,
+    clear_session,
+    load_failed_scrobbles,
+)
 from sclibble.last import authenticate, submit_scrobbles
-from sclibble.read import find_device_path, get_recent_tracks
+from sclibble.read import find_device_path, get_recent_tracks, get_device_name
 from sclibble.ui import (
     print_success,
     print_error,
@@ -16,12 +21,13 @@ from sclibble.ui import (
 
 app = typer.Typer(help="SCLIbble: The lightweight iPod scrobbler for Last.fm.")
 
+
 @app.command()
 def login():
     """Authenticate with Last.fm and save the session key."""
     if load_session():
         print_info("You are already logged in.")
-        if not prompt_confirm("Do you want to re-authenticate?"):
+        if not prompt_confirm("Re-authenticate?"):
             return
 
     try:
@@ -51,7 +57,9 @@ def status():
 
     failed_cache = load_failed_scrobbles()
     if failed_cache:
-        print_info(f"There are {len(failed_cache)} pending/failed scrobbles in the cache.")
+        print_info(
+            f"There are {len(failed_cache)} pending/failed scrobbles in the cache."
+        )
     else:
         print_info("There are no pending scrobbles in the cache.")
 
@@ -67,22 +75,26 @@ def sync():
     # 1. Find Device
     with show_spinner("Searching for iPod..."):
         device_path = find_device_path()
-        
+
     if not device_path:
-        print_error("Could not find a connected iPod (iPod_Control directory missing).")
+        print_error("Could not find a connected iPod.")
         raise typer.Exit(1)
-        
-    print_success(f"Found iPod at {device_path}")
+
+    device_name = get_device_name(device_path)
+    if device_name:
+        print_success(f"Found {device_name}")
+    else:
+        print_success(f"Found iPod at {device_path}")
 
     itunesDb_file = Path(device_path) / "iPod_Control" / "iTunes" / "iTunesDB"
     play_counts_file = Path(device_path) / "iPod_Control" / "iTunes" / "Play Counts"
 
     if not itunesDb_file.exists() or not play_counts_file.exists():
-        print_error("Required database files (iTunesDB or Play Counts) not found on device.")
+        print_error("Required database files not found on device.")
         raise typer.Exit(1)
 
     # 2. Parse Database
-    with show_spinner("Parsing iTunesDB and Play Counts..."):
+    with show_spinner("Parsing database..."):
         recent_tracks = get_recent_tracks(str(itunesDb_file), str(play_counts_file))
 
     # Append cached failures to list for selection (optional, but good for visibility)
@@ -91,7 +103,7 @@ def sync():
         print_info("No recent plays found to scrobble.")
         return
 
-    print_info(f"Found {len(recent_tracks)} un-scrobbled plays on device.")
+    print_info(f"Found {len(recent_tracks)} fresh plays.")
     if cached_failures:
         print_info(f"Also found {len(cached_failures)} cached failed scrobbles.")
 
@@ -102,15 +114,15 @@ def sync():
         return
 
     # 4. Submit Scrobbles
-    with show_spinner("Submitting scrobbles to Last.fm..."):
+    with show_spinner("Scrobbling to Last.fm..."):
         # The submit_scrobbles function automatically loads and appends the cache internally
         successful_count = submit_scrobbles(selected_tracks, session_key)
-        
+
     print_success(f"Successfully scrobbled {successful_count} tracks.")
 
     # 5. Cleanup
     if successful_count > 0:
-        if prompt_confirm("Do you want to delete the Play Counts file to prevent duplicate scrobbles next time?"):
+        if prompt_confirm("Delete Play Counts file?"):
             try:
                 os.remove(play_counts_file)
                 print_success("Play Counts file deleted.")
@@ -118,8 +130,11 @@ def sync():
                 print_error(f"Failed to delete Play Counts file: {e}")
 
     # Not strictly required, but a nice to have from GEMINI.md
-    if prompt_confirm("Do you want to eject the iPod?"):
-        print_info("Please eject the iPod manually using your OS (OS-specific auto-eject not yet fully implemented).")
+    if prompt_confirm("Eject iPod?"):
+        print_info(
+            "Please eject iPod manually using your OS (OS-specific auto-eject not yet fully implemented)."
+        )
+
 
 if __name__ == "__main__":
     app()
