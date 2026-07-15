@@ -1,6 +1,5 @@
 README.md
 pyproject.toml
-sclibble/__init__.py
 sclibble/__main__.py
 sclibble/cli.py
 sclibble/config.py
@@ -15,4 +14,6 @@ sclibble.egg-info/entry_points.txt
 sclibble.egg-info/requires.txt
 sclibble.egg-info/top_level.txt
 tests/test_config.py
+tests/test_last.py
 tests/test_models.py
+tests/test_read.py

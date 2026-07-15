@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import typer
+import typer.rich_utils
 
 from sclibble.config import (
     load_session,
@@ -19,7 +20,7 @@ from sclibble.ui import (
     prompt_confirm,
 )
 
-app = typer.Typer(help="SCLIbble: The lightweight iPod scrobbler for Last.fm.")
+app = typer.Typer(rich_markup_mode="rich", help="CLI iPod Scrobbler.")
 
 
 @app.command()
@@ -90,7 +91,9 @@ def sync():
     play_counts_file = Path(device_path) / "iPod_Control" / "iTunes" / "Play Counts"
 
     if not itunesDb_file.exists() or not play_counts_file.exists():
-        print_error("Required database files not found on device.")
+        print_error(
+            "Required database files not found on device. Go listen to some music!"
+        )
         raise typer.Exit(1)
 
     # 2. Parse Database
@@ -103,7 +106,7 @@ def sync():
         print_info("No recent plays found to scrobble.")
         return
 
-    print_info(f"Found {len(recent_tracks)} fresh plays.")
+    print_info(f"Found {len(recent_tracks)} new plays.")
     if cached_failures:
         print_info(f"Also found {len(cached_failures)} cached failed scrobbles.")
 
@@ -114,7 +117,7 @@ def sync():
         return
 
     # 4. Submit Scrobbles
-    with show_spinner("Scrobbling to Last.fm..."):
+    with show_spinner("Scrobbling..."):
         # The submit_scrobbles function automatically loads and appends the cache internally
         successful_count = submit_scrobbles(selected_tracks, session_key)
 
@@ -122,18 +125,18 @@ def sync():
 
     # 5. Cleanup
     if successful_count > 0:
-        if prompt_confirm("Delete Play Counts file?"):
+        if prompt_confirm("Delete Play Counts?"):
             try:
                 os.remove(play_counts_file)
-                print_success("Play Counts file deleted.")
+                print_success("Play Counts deleted.")
             except Exception as e:
-                print_error(f"Failed to delete Play Counts file: {e}")
+                print_error(f"Failed to delete Play Counts: {e}")
 
-    # Not strictly required, but a nice to have from GEMINI.md
-    if prompt_confirm("Eject iPod?"):
-        print_info(
-            "Please eject iPod manually using your OS (OS-specific auto-eject not yet fully implemented)."
-        )
+    # commented until implemented
+    # if prompt_confirm("Eject iPod?"):
+    #     print_info(
+    #         "Please eject iPod manually using your OS (OS-specific auto-eject not yet fully implemented)."
+    #     )
 
 
 if __name__ == "__main__":
