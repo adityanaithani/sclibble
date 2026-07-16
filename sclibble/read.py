@@ -8,9 +8,10 @@ from sclibble.models import Track
 
 
 def find_device_path() -> Optional[str]:
-    """Scans common mount points for an iPod (identified by iPod_Control directory)."""
+    """Check common mount points for iPod. Return path if found, else None"""
     if sys.platform == "win32":
         import string
+
         drives = [f"{d}:\\" for d in string.ascii_uppercase]
         for drive in drives:
             try:
@@ -29,17 +30,18 @@ def find_device_path() -> Optional[str]:
                         return str(mount)
                 except Exception:
                     pass
-    else:  # Linux and others
+    else:
         import getpass
+
         try:
             user = getpass.getuser()
         except Exception:
             user = ""
-            
+
         search_paths = [Path("/media"), Path("/mnt")]
         if user:
             search_paths.append(Path(f"/run/media/{user}"))
-            
+
         for sp in search_paths:
             if sp.exists():
                 for mount in sp.iterdir():
@@ -67,7 +69,7 @@ def get_device_name(device_path: str) -> Optional[str]:
             name_length = struct.unpack_from("<H", data, 0)[0]
             if name_length > 0 and name_length < 256:
                 # Name starts at offset 2, UTF-16LE encoded. Each char is 2 bytes.
-                name_bytes = data[2: 2 + (name_length * 2)]
+                name_bytes = data[2 : 2 + (name_length * 2)]
                 return name_bytes.decode("utf-16-le", errors="ignore").strip("\x00")
     except Exception:
         pass
@@ -150,7 +152,7 @@ def read_play_counts(filepath: str, tracklist: List[dict]) -> List[dict]:
         if play_count > 0:
             last_played = struct.unpack_from("<I", data, bytes_offset + 4)[0]
 
-            # mac epoc to unix epoc
+            # mac epoch to unix epoch
             last_played -= 2082844800
             last_played += tz_offset_seconds
 
@@ -182,7 +184,7 @@ def get_recent_tracks(itunesDb_path: str, play_counts_path: str) -> List[Track]:
             length_sec = t["length"] // 1000
             if length_sec <= 0:
                 length_sec = 180  # Default to 3 minutes if length is missing or 0
-            
+
             last_played = t["lastPlayed"]
             for i in range(pc):
                 # Backdate previous plays by the length of the track
@@ -193,7 +195,7 @@ def get_recent_tracks(itunesDb_path: str, play_counts_path: str) -> List[Track]:
     plays.sort(key=lambda p: p.ts, reverse=True)
 
     resolved_tracks = []
-    latest_available_time = float('inf')
+    latest_available_time = float("inf")
 
     for p in plays:
         if p.ts > latest_available_time:
@@ -205,37 +207,18 @@ def get_recent_tracks(itunesDb_path: str, play_counts_path: str) -> List[Track]:
 
         # The next (older) play must finish before this one starts
         latest_available_time = p.ts - length_sec
-        
-        # We model each scrobble event as a Track instance with play_count=1
+
+        # model each scrobble event as a Track instance with play_count=1
         track_model = Track(
             title=p.track_dict["track"],
             artist=p.track_dict["artist"],
             album=p.track_dict["album"],
-            play_count=1, 
+            play_count=1,
             last_played=p.track_dict["lastPlayed"],
-            timestamp=int(p.ts)
+            timestamp=int(p.ts),
         )
         resolved_tracks.append(track_model)
 
     # Return chronologically ascending
     resolved_tracks.sort(key=lambda t: t.timestamp)
     return resolved_tracks
-
-
-# --- Usage Example ---
-if __name__ == "__main__":
-    device_path = find_device_path()
-    print(f"Device Path: {device_path}")
-    
-    itunesDb_file = "../tests/sampleData/iTunesDB"
-    play_counts_file = "../tests/sampleData/Play Counts"
-
-    if Path(itunesDb_file).exists() and Path(play_counts_file).exists():
-        recent = get_recent_tracks(itunesDb_file, play_counts_file)
-        print(f"Found {len(recent)} recent plays ready to scrobble. \n")
-        for tr in recent[:5]:
-            print(tr)
-        if len(recent) > 5:
-            print(f"... and {len(recent) - 5} more.")
-    else:
-        print("Sample data not found.")

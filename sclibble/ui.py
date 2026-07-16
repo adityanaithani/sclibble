@@ -9,7 +9,7 @@ import questionary
 from questionary import Style
 from sclibble.models import Track
 
-# declare custom themes
+# declare custom theming
 questionary_theme = Style(
     [
         ("qmark", "ansibrightcyan bold"),  # token in front of the question

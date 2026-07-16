@@ -6,15 +6,17 @@ from typing import List
 from sclibble.models import Track
 from sclibble.config import save_failed_scrobbles, load_failed_scrobbles
 
-# /* SECRETSECRETSECRET */
+# /* SECRET */
 api_key = "2b8fa2046f72f0a442d28d9671ab4fbb"
 secret = "ed3c377b301baebf3cfdea19d153c8ef"
-# /* SECRETSECRETSECRET */
+# /* SECRET */
 
 url = "http://ws.audioscrobbler.com/2.0/"
 
+# helpers
 
-# HELPERS
+
+# API signature
 def generate_sig(params: dict, secret: str) -> str:
     filtered_params = {
         k: v for k, v in params.items() if k not in ("format", "callback", "api_sig")
@@ -56,24 +58,26 @@ def fetch_session_key(key: str, secret: str, token: str) -> str:
     return r.json()["session"]["key"]
 
 
-# ORCHESTRATOR
+# orchestrators
 def authenticate() -> str:
     # 1. get token
     token = fetch_request_token(api_key, secret)
     # 2. open browser for user
     auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&token={token}"
     webbrowser.open(auth_url)
-    
     # 3. wait for user to finish (handled by CLI caller)
-    input("Press Enter here after you have authorized the application in your browser...")
-    
+    input(
+        "Press Enter here after you have authorized the application in your browser..."
+    )
     # 4. exchange token for session key
     session_key = fetch_session_key(api_key, secret, token)
     # 5. return session key to be saved by the caller
     return session_key
 
 
-def scrobble_batch(tracklist_chunk: List[Track], api_key: str, secret: str, session_key: str) -> dict:
+def scrobble_batch(
+    tracklist_chunk: List[Track], api_key: str, secret: str, session_key: str
+) -> dict:
     if len(tracklist_chunk) > 50:
         raise ValueError("Cannot scrobble more than 50 tracks per batch!")
 
@@ -90,7 +94,7 @@ def scrobble_batch(tracklist_chunk: List[Track], api_key: str, secret: str, sess
         payload[f"timestamp[{i}]"] = str(track.timestamp)
         if track.album:
             payload[f"album[{i}]"] = track.album
-            
+
     payload["api_sig"] = generate_sig(payload, secret)
 
     response = requests.post(url, data=payload)
@@ -106,10 +110,6 @@ def scrobble_batch(tracklist_chunk: List[Track], api_key: str, secret: str, sess
 
 
 def submit_scrobbles(tracklist: List[Track], session_key: str) -> int:
-    """
-    Submits a list of Tracks to Last.fm.
-    Saves any failed tracks to the cache and returns the number of successful scrobbles.
-    """
     chunk_size = 50
     total_scrobbles = 0
     failed_tracks = []
@@ -117,15 +117,18 @@ def submit_scrobbles(tracklist: List[Track], session_key: str) -> int:
     # load any previously failed scrobbles and append them to the current list
     cached_failures = load_failed_scrobbles()
     for item in cached_failures:
-        tracklist.append(Track(
-            title=item["title"],
-            artist=item["artist"],
-            album=item["album"],
-            play_count=item["play_count"],
-            last_played=item["last_played"],
-            timestamp=item["timestamp"]
-        ))
+        tracklist.append(
+            Track(
+                title=item["title"],
+                artist=item["artist"],
+                album=item["album"],
+                play_count=item["play_count"],
+                last_played=item["last_played"],
+                timestamp=item["timestamp"],
+            )
+        )
 
+    # process tracklist in chunks of 50 (last.fm API limit)
     for i in range(0, len(tracklist), chunk_size):
         chunk = tracklist[i : i + chunk_size]
 
@@ -137,7 +140,7 @@ def submit_scrobbles(tracklist: List[Track], session_key: str) -> int:
             failed_tracks.extend(chunk)
 
     if failed_tracks:
-        # Convert Track objects to dicts for JSON serialization
+        # convert Track objects to dicts for saving in cache
         failures_to_save = [
             {
                 "title": t.title,
@@ -145,12 +148,13 @@ def submit_scrobbles(tracklist: List[Track], session_key: str) -> int:
                 "album": t.album,
                 "play_count": t.play_count,
                 "last_played": t.last_played,
-                "timestamp": t.timestamp
-            } for t in failed_tracks
+                "timestamp": t.timestamp,
+            }
+            for t in failed_tracks
         ]
         save_failed_scrobbles(failures_to_save)
     else:
-        # Clear cache if all successful
+        # if successful, clear cache
         save_failed_scrobbles([])
 
     return total_scrobbles

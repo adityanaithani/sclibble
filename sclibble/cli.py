@@ -118,7 +118,6 @@ def sync():
 
     # 4. Submit Scrobbles
     with show_spinner("Scrobbling..."):
-        # The submit_scrobbles function automatically loads and appends the cache internally
         successful_count = submit_scrobbles(selected_tracks, session_key)
 
     print_success(f"Successfully scrobbled {successful_count} tracks.")
@@ -131,12 +130,6 @@ def sync():
                 print_success("Play Counts deleted.")
             except Exception as e:
                 print_error(f"Failed to delete Play Counts: {e}")
-
-    # commented until implemented
-    # if prompt_confirm("Eject iPod?"):
-    #     print_info(
-    #         "Please eject iPod manually using your OS (OS-specific auto-eject not yet fully implemented)."
-    #     )
 
 
 if __name__ == "__main__":
