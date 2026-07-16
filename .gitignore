@@ -10,4 +10,5 @@
 .dev/
 
 .cache/
+__pycache__
 *.tmp
