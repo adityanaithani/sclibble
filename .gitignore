@@ -10,5 +10,10 @@
 .dev/
 
 .cache/
-__pycache__
+__pycache__/
+*.pyc
 *.tmp
+
+*.egg-info/
+dist/
+build/

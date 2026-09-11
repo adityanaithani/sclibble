@@ -12,11 +12,13 @@ authors = [
     { name = "Aditya Naithani", email = "aditya0602@gmail.com" }
 ]
 requires-python = ">=3.9"
+keywords = ["ipod", "lastfm", "scrobble", "cli", "music"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
     "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: MacOS",
     "Topic :: Multimedia :: Sound/Audio"
 ]
 dependencies = [
@@ -33,6 +35,10 @@ dev = [
     "pytest-mock>=3.10.0",
     "responses>=0.23.0"
 ]
+
+[project.urls]
+Repository = "https://github.com/adityanaithani/sclibble"
+Issues = "https://github.com/adityanaithani/sclibble/issues"
 
 [project.scripts]
 sclibble = "sclibble.cli:app"
