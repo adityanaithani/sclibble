@@ -9,7 +9,7 @@ import questionary
 from questionary import Style
 from sclibble.models import Track
 
-# declare custom theming
+# custom theme declarations
 questionary_theme = Style(
     [
         ("qmark", "ansibrightcyan bold"),  # token in front of the question
@@ -25,7 +25,7 @@ questionary_theme = Style(
         ),  # pointed-at choice in select and checkbox prompts
         (
             "selected",
-            "noreverse",
+            "ansigreen noreverse",
         ),  # style for a selected item of a checkbox
         ("separator", ""),  # separator in lists
         (
@@ -39,8 +39,6 @@ questionary_theme = Style(
         ),  # disabled choices for select and checkbox prompts
     ]
 )
-
-
 rich_theme = Theme(
     {
         "repr.number": "bold green",  # numbers
@@ -55,20 +53,17 @@ console = Console(theme=rich_theme)
 
 def print_success(message: str) -> None:
     """Prints a success message in green."""
-    # console.print(f"[bold green]•[/bold green] {message}")
-    console.print(f"{message}")
+    console.print(message, style="green")
 
 
 def print_error(message: str) -> None:
     """Prints an error message in red."""
-    # console.print(f"[bold red]✗[/bold red] {message}")
-    console.print(f"{message}")
+    console.print(message, style="red")
 
 
 def print_info(message: str) -> None:
-    """Prints an info message in blue."""
-    # console.print(f"[bold blue]•[/bold blue] {message}")
-    console.print(f"{message}")
+    """Prints an info message in cyan."""
+    console.print(message, style="cyan")
 
 
 @contextmanager

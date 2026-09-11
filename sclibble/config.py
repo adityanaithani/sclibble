@@ -18,8 +18,11 @@ def get_session_file() -> Path:
 
 
 def get_failed_scrobbles_file() -> Path:
-    print(get_data_dir() / "failed_scrobbles.json")
     return get_data_dir() / "failed_scrobbles.json"
+
+
+def get_prefs_file() -> Path:
+    return get_data_dir() / "config.json"
 
 
 def save_session(key: str) -> None:
@@ -35,6 +38,31 @@ def load_session() -> Optional[str]:
         try:
             data = json.loads(session_file.read_text())
             return data.get("session_key")
+        except json.JSONDecodeError:
+            return None
+    return None
+
+
+def save_username(username: str) -> None:
+    """Saves the Last.fm username alongside the session key."""
+    session_file = get_session_file()
+    data = {}
+    if session_file.exists():
+        try:
+            data = json.loads(session_file.read_text())
+        except json.JSONDecodeError:
+            data = {}
+    data["username"] = username
+    session_file.write_text(json.dumps(data))
+
+
+def load_username() -> Optional[str]:
+    """Loads the stored Last.fm username, if present."""
+    session_file = get_session_file()
+    if session_file.exists():
+        try:
+            data = json.loads(session_file.read_text())
+            return data.get("username")
         except json.JSONDecodeError:
             return None
     return None
@@ -62,3 +90,29 @@ def load_failed_scrobbles() -> List[Dict]:
         except json.JSONDecodeError:
             return []
     return []
+
+
+def save_prefs(prefs: Dict) -> None:
+    """Saves user preferences to config.json."""
+    prefs_file = get_prefs_file()
+    prefs_file.write_text(json.dumps(prefs))
+
+
+def load_prefs() -> Dict:
+    """Loads user preferences from config.json."""
+
+    prefs_file = get_prefs_file()
+    if prefs_file.exists():
+        try:
+            return json.loads(prefs_file.read_text())
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def clear_prefs() -> None:
+    """Clears stored user preferences."""
+
+    prefs_file = get_prefs_file()
+    if prefs_file.exists():
+        prefs_file.unlink()
