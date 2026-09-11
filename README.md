@@ -51,7 +51,7 @@ Data lives in the platformdirs user-data directory — on macOS, `~/Library/Appl
 
 ## Platform notes
 
-macOS is tested. Windows and Linux discovery code exists (drive letters on Windows; `/media`, `/mnt`, `/run/media/<user>` on Linux) but is untested.
+macOS is tested (with an iPod mini 2G in disk mode). Windows and Linux discovery code exists (drive letters on Windows; `/media`, `/mnt`, `/run/media/<user>` on Linux) but is untested.
 
 ## Troubleshooting
 
