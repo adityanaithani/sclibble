@@ -10,4 +10,12 @@
 .dev/
 
 .cache/
+__pycache__/
+*.pyc
 *.tmp
+
+*.egg-info/
+dist/
+build/
+
+plan.md

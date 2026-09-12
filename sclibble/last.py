@@ -1,4 +1,5 @@
 import hashlib
+import time
 import requests
 import webbrowser
 from typing import List
@@ -6,17 +7,36 @@ from typing import List
 from sclibble.models import Track
 from sclibble.config import save_failed_scrobbles, load_failed_scrobbles
 
-# /* SECRET */
+# intentionally hardcoded credentials (last.fm api is really really old)
 api_key = "2b8fa2046f72f0a442d28d9671ab4fbb"
 secret = "ed3c377b301baebf3cfdea19d153c8ef"
-# /* SECRET */
 
-url = "http://ws.audioscrobbler.com/2.0/"
+url = "https://ws.audioscrobbler.com/2.0/"
+
+TIMEOUT = 30
+MAX_RETRIES = 3
 
 # helpers
 
 
-# API signature
+def _request_with_retry(method: str, **kwargs) -> requests.Response:
+    """HTTP request with retry: up to 3 attempts, backing off 1s then 2s.
+    Only retries on connection errors, timeouts, and 5xx responses."""
+    kwargs.setdefault("timeout", TIMEOUT)
+    for attempt in range(MAX_RETRIES):
+        if attempt:
+            time.sleep(attempt)  # 1s before 2nd attempt, 2s before 3rd
+        try:
+            response = requests.request(method, url, **kwargs)
+            if response.status_code < 500:
+                return response
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt == MAX_RETRIES - 1:
+                raise
+    return response  # final attempt got a 5xx; let the caller handle it
+
+
+# Last.fm API signature
 def generate_sig(params: dict, secret: str) -> str:
     filtered_params = {
         k: v for k, v in params.items() if k not in ("format", "callback", "api_sig")
@@ -31,7 +51,7 @@ def fetch_request_token(key: str, secret: str) -> str:
     payload = {"method": "auth.getToken", "api_key": key, "format": "json"}
     payload["api_sig"] = generate_sig(payload, secret)
 
-    r = requests.get(url, params=payload)
+    r = _request_with_retry("get", params=payload)
     r.raise_for_status()
 
     return r.json()["token"]
@@ -46,7 +66,7 @@ def fetch_session_key(key: str, secret: str, token: str) -> str:
     }
     payload["api_sig"] = generate_sig(payload, secret)
 
-    r = requests.get(url, params=payload)
+    r = _request_with_retry("get", params=payload)
     if r.status_code != 200:
         error_msg = r.text
         try:
@@ -58,12 +78,28 @@ def fetch_session_key(key: str, secret: str, token: str) -> str:
     return r.json()["session"]["key"]
 
 
+def fetch_username(session_key: str) -> str:
+    """Fetches the account username for a session key via user.getInfo."""
+    payload = {
+        "method": "user.getInfo",
+        "api_key": api_key,
+        "sk": session_key,
+        "format": "json",
+    }
+    payload["api_sig"] = generate_sig(payload, secret)
+
+    r = _request_with_retry("get", params=payload)
+    r.raise_for_status()
+
+    return r.json()["user"]["name"]
+
+
 # orchestrators
 def authenticate() -> str:
     # 1. get token
     token = fetch_request_token(api_key, secret)
     # 2. open browser for user
-    auth_url = f"http://www.last.fm/api/auth/?api_key={api_key}&token={token}"
+    auth_url = f"https://www.last.fm/api/auth/?api_key={api_key}&token={token}"
     webbrowser.open(auth_url)
     # 3. wait for user to finish (handled by CLI caller)
     input(
@@ -97,7 +133,7 @@ def scrobble_batch(
 
     payload["api_sig"] = generate_sig(payload, secret)
 
-    response = requests.post(url, data=payload)
+    response = _request_with_retry("post", data=payload)
     if response.status_code != 200:
         error_msg = response.text
         try:
@@ -114,10 +150,11 @@ def submit_scrobbles(tracklist: List[Track], session_key: str) -> int:
     total_scrobbles = 0
     failed_tracks = []
 
-    # load any previously failed scrobbles and append them to the current list
-    cached_failures = load_failed_scrobbles()
-    for item in cached_failures:
-        tracklist.append(
+    # load any previously failed scrobbles and combine them with the current
+    # list (on a copy, so the caller's list is never mutated)
+    combined = list(tracklist)
+    for item in load_failed_scrobbles():
+        combined.append(
             Track(
                 title=item["title"],
                 artist=item["artist"],
@@ -128,9 +165,9 @@ def submit_scrobbles(tracklist: List[Track], session_key: str) -> int:
             )
         )
 
-    # process tracklist in chunks of 50 (last.fm API limit)
-    for i in range(0, len(tracklist), chunk_size):
-        chunk = tracklist[i : i + chunk_size]
+    # process combined list in chunks of 50 (last.fm API limit)
+    for i in range(0, len(combined), chunk_size):
+        chunk = combined[i : i + chunk_size]
 
         try:
             result = scrobble_batch(chunk, api_key, secret, session_key)

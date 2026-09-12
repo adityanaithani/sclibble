@@ -7,8 +7,13 @@ from typing import List, Optional
 from sclibble.models import Track
 
 
-def find_device_path() -> Optional[str]:
-    """Check common mount points for iPod. Return path if found, else None"""
+def find_device_path(custom_path: Optional[str] = None) -> Optional[str]:
+    """Check custom_path or common mount points for iPod. Return path if found, else None"""
+    if custom_path:
+        ipod_path = Path(custom_path) / "iPod_Control"
+        if ipod_path.exists() and ipod_path.is_dir():
+            return str(Path(custom_path))
+    # if no custom path, fall back to os-based discovery
     if sys.platform == "win32":
         import string
 
@@ -76,11 +81,29 @@ def get_device_name(device_path: str) -> Optional[str]:
     return None
 
 
+def _validate_file(filepath: str) -> None:
+    """Ensure a database file exists and is non-empty before parsing."""
+    path = Path(filepath)
+    if not path.exists():
+        raise RuntimeError(f"Required file not found: {filepath}")
+    if path.stat().st_size == 0:
+        raise RuntimeError(f"Required file is empty: {filepath}")
+
+
 def read_itunesDb(filepath: str) -> List[dict]:
-    tracklist = []
+    _validate_file(filepath)
 
     with open(filepath, "rb") as f:
         data = f.read()
+
+    try:
+        return _parse_itunesDb(data)
+    except (struct.error, IndexError, UnicodeDecodeError) as e:
+        raise RuntimeError(f"Failed to parse iTunesDB file {filepath}: {e}") from e
+
+
+def _parse_itunesDb(data: bytes) -> List[dict]:
+    tracklist = []
 
     offset = 0
     while True:
@@ -133,9 +156,18 @@ def read_itunesDb(filepath: str) -> List[dict]:
 
 
 def read_play_counts(filepath: str, tracklist: List[dict]) -> List[dict]:
+    _validate_file(filepath)
+
     with open(filepath, "rb") as f:
         data = f.read()
 
+    try:
+        return _parse_play_counts(data, tracklist)
+    except (struct.error, IndexError, UnicodeDecodeError) as e:
+        raise RuntimeError(f"Failed to parse Play Counts file {filepath}: {e}") from e
+
+
+def _parse_play_counts(data: bytes, tracklist: List[dict]) -> List[dict]:
     entry_len = struct.unpack_from("<I", data, 8)[0]
     num_entries = struct.unpack_from("<I", data, 12)[0]
 
