@@ -7,10 +7,9 @@ from typing import List
 from sclibble.models import Track
 from sclibble.config import save_failed_scrobbles, load_failed_scrobbles
 
-# /* SECRET */
+# intentionally hardcoded credentials (last.fm api is really really old)
 api_key = "2b8fa2046f72f0a442d28d9671ab4fbb"
 secret = "ed3c377b301baebf3cfdea19d153c8ef"
-# /* SECRET */
 
 url = "https://ws.audioscrobbler.com/2.0/"
 
@@ -37,7 +36,7 @@ def _request_with_retry(method: str, **kwargs) -> requests.Response:
     return response  # final attempt got a 5xx; let the caller handle it
 
 
-# API signature
+# Last.fm API signature
 def generate_sig(params: dict, secret: str) -> str:
     filtered_params = {
         k: v for k, v in params.items() if k not in ("format", "callback", "api_sig")

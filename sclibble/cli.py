@@ -98,9 +98,8 @@ def sync():
 
     print_success(f"Successfully scrobbled {successful_count} tracks.")
 
-    # cleanup: only delete Play Counts if every selected new device play was
+    # only delete Play Counts if every selected new device play was
     # accepted by Last.fm and nothing landed (back) in the failure cache.
-    # Cache-only retries never delete the file.
     remaining_failures = load_failed_scrobbles()
     all_accepted = (
         bool(selected_tracks)
@@ -109,7 +108,11 @@ def sync():
     )
 
     if successful_count > 0 and all_accepted:
-        should_delete = autodelete if autodelete is not None else prompt_confirm("Delete Play Counts?")
+        should_delete = (
+            autodelete
+            if autodelete is not None
+            else prompt_confirm("Delete Play Counts?")
+        )
         if should_delete:
             try:
                 os.remove(play_counts_file)
