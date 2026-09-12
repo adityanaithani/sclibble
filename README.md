@@ -27,7 +27,8 @@ Requires Python 3.9.
 
 ## Commands
 
-> [!NOTE] these may also be run with the `scl` alias
+> [!NOTE]
+> these may also be run with the `scl` alias
 
 - `sclibble login` — authenticates via browser to Last.fm
 - `sclibble logout` — logs out of current Last.fm session
